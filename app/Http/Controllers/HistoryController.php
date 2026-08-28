@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\SearchHistory;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HistoryController extends Controller
@@ -16,26 +18,39 @@ class HistoryController extends Controller
         $type = $request->query('type');
         $search = $request->query('search');
 
-        $query = SearchHistory::query()->orderBy('id', 'desc');
-
-        if (!empty($type) && in_array($type, ['ip', 'phone'])) {
-            $query->where('type', $type);
-        }
-
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('query', 'like', "%{$search}%")
-                  ->orWhere('title', 'like', "%{$search}%");
-            });
-        }
-
-        $histories = $query->paginate(15)->withQueryString();
-        
         $stats = [
-            'total' => SearchHistory::count(),
-            'ip_count' => SearchHistory::where('type', 'ip')->count(),
-            'phone_count' => SearchHistory::where('type', 'phone')->count()
+            'total' => 0,
+            'ip_count' => 0,
+            'phone_count' => 0
         ];
+        $histories = new LengthAwarePaginator([], 0, 15);
+
+        try {
+            if (Schema::hasTable('search_histories')) {
+                $query = SearchHistory::query()->orderBy('id', 'desc');
+
+                if (!empty($type) && in_array($type, ['ip', 'phone'])) {
+                    $query->where('type', $type);
+                }
+
+                if (!empty($search)) {
+                    $query->where(function ($q) use ($search) {
+                        $q->where('query', 'like', "%{$search}%")
+                          ->orWhere('title', 'like', "%{$search}%");
+                    });
+                }
+
+                $histories = $query->paginate(15)->withQueryString();
+                
+                $stats = [
+                    'total' => SearchHistory::count(),
+                    'ip_count' => SearchHistory::where('type', 'ip')->count(),
+                    'phone_count' => SearchHistory::where('type', 'phone')->count()
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Safe fallback
+        }
 
         return view('tracker.history', [
             'histories' => $histories,
@@ -50,8 +65,12 @@ class HistoryController extends Controller
      */
     public function show($id)
     {
-        $history = SearchHistory::findOrFail($id);
-        return response()->json($history);
+        try {
+            $history = SearchHistory::findOrFail($id);
+            return response()->json($history);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
     }
 
     /**
@@ -59,8 +78,12 @@ class HistoryController extends Controller
      */
     public function destroy($id)
     {
-        $history = SearchHistory::findOrFail($id);
-        $history->delete();
+        try {
+            $history = SearchHistory::findOrFail($id);
+            $history->delete();
+        } catch (\Throwable $e) {
+            // Ignore
+        }
 
         return redirect()->route('tracker.history')->with('success', 'Riwayat berhasil dihapus.');
     }
@@ -70,13 +93,17 @@ class HistoryController extends Controller
      */
     public function clear()
     {
-        SearchHistory::truncate();
+        try {
+            SearchHistory::truncate();
+        } catch (\Throwable $e) {
+            // Ignore
+        }
 
         return redirect()->route('tracker.history')->with('success', 'Semua riwayat berhasil dikosongkan.');
     }
 
     /**
-     * Export data riwayat ke file CSV (Bagus untuk data pendukung tugas akhir)
+     * Export data riwayat ke file CSV
      */
     public function exportCsv(): StreamedResponse
     {
@@ -94,23 +121,28 @@ class HistoryController extends Controller
 
         $callback = function () use ($columns) {
             $file = fopen('php://output', 'w');
-            // Menulis UTF-8 BOM agar rapi saat dibuka di Excel Windows
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($file, $columns);
 
-            SearchHistory::orderBy('id', 'desc')->chunk(100, function ($rows) use ($file) {
-                foreach ($rows as $row) {
-                    fputcsv($file, [
-                        $row->id,
-                        strtoupper($row->type),
-                        $row->query,
-                        $row->title,
-                        $row->client_ip,
-                        $row->status,
-                        $row->created_at->format('Y-m-d H:i:s')
-                    ]);
+            try {
+                if (Schema::hasTable('search_histories')) {
+                    SearchHistory::orderBy('id', 'desc')->chunk(100, function ($rows) use ($file) {
+                        foreach ($rows as $row) {
+                            fputcsv($file, [
+                                $row->id,
+                                strtoupper($row->type),
+                                $row->query,
+                                $row->title,
+                                $row->client_ip,
+                                $row->status,
+                                $row->created_at->format('Y-m-d H:i:s')
+                            ]);
+                        }
+                    });
                 }
-            });
+            } catch (\Throwable $e) {
+                // Ignore
+            }
 
             fclose($file);
         };

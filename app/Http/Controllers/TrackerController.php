@@ -7,6 +7,7 @@ use App\Services\IpTrackerService;
 use App\Services\PhoneTrackerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class TrackerController extends Controller
 {
@@ -25,9 +26,17 @@ class TrackerController extends Controller
     public function index(Request $request)
     {
         $clientIp = $request->ip();
-        
-        // Ambil riwayat terbaru (5 item) untuk widget recent searches
-        $recentSearches = SearchHistory::orderBy('id', 'desc')->take(6)->get();
+        $recentSearches = collect();
+
+        try {
+            // Ambil riwayat terbaru jika tabel sudah ada
+            if (Schema::hasTable('search_histories')) {
+                $recentSearches = SearchHistory::orderBy('id', 'desc')->take(6)->get();
+            }
+        } catch (\Throwable $e) {
+            // Fallback aman untuk serverless
+            $recentSearches = collect();
+        }
 
         return view('tracker.index', [
             'clientIp' => $clientIp,
@@ -48,17 +57,21 @@ class TrackerController extends Controller
         $data = $this->ipService->track($query);
 
         if (($data['status'] ?? '') === 'success') {
-            // Simpan riwayat pencarian
-            $title = ($data['city'] ? $data['city'] . ', ' : '') . $data['country'] . ' (' . $data['isp'] . ')';
-            
-            SearchHistory::create([
-                'type' => 'ip',
-                'query' => $data['ip'],
-                'title' => $title,
-                'result_json' => $data,
-                'client_ip' => $request->ip(),
-                'status' => 'success'
-            ]);
+            // Simpan riwayat pencarian (aman jika database belum siap)
+            try {
+                $title = ($data['city'] ? $data['city'] . ', ' : '') . $data['country'] . ' (' . $data['isp'] . ')';
+                
+                SearchHistory::create([
+                    'type' => 'ip',
+                    'query' => $data['ip'],
+                    'title' => $title,
+                    'result_json' => $data,
+                    'client_ip' => $request->ip(),
+                    'status' => 'success'
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore DB write error on ephemeral serverless
+            }
 
             return response()->json([
                 'success' => true,
@@ -85,17 +98,20 @@ class TrackerController extends Controller
         $data = $this->phoneService->track($query);
 
         if (($data['status'] ?? '') === 'success') {
-            // Simpan riwayat pencarian
-            $title = $data['carrier'] . ' - ' . $data['country'] . ' (' . $data['e164_format'] . ')';
+            try {
+                $title = $data['carrier'] . ' - ' . $data['country'] . ' (' . $data['e164_format'] . ')';
 
-            SearchHistory::create([
-                'type' => 'phone',
-                'query' => $data['e164_format'] ?? $query,
-                'title' => $title,
-                'result_json' => $data,
-                'client_ip' => $request->ip(),
-                'status' => 'success'
-            ]);
+                SearchHistory::create([
+                    'type' => 'phone',
+                    'query' => $data['e164_format'] ?? $query,
+                    'title' => $title,
+                    'result_json' => $data,
+                    'client_ip' => $request->ip(),
+                    'status' => 'success'
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore DB write error on ephemeral serverless
+            }
 
             return response()->json([
                 'success' => true,
