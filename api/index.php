@@ -1,11 +1,18 @@
 <?php
 
+// Tampilkan error secara eksplisit jika terjadi kegagalan bootstrap di serverless
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
+
 // Pastikan direktori /tmp untuk Vercel Serverless terbuat
 $tmpDirs = [
     '/tmp/views',
     '/tmp/sessions',
     '/tmp/cache',
-    '/tmp/logs'
+    '/tmp/logs',
+    '/tmp/storage/framework/views',
+    '/tmp/storage/framework/sessions',
+    '/tmp/storage/framework/cache'
 ];
 
 foreach ($tmpDirs as $dir) {
@@ -14,7 +21,7 @@ foreach ($tmpDirs as $dir) {
     }
 }
 
-// Pastikan SQLite file tersedia di /tmp jika di Vercel
+// Inisialisasi SQLite di /tmp
 $sqliteDb = '/tmp/database.sqlite';
 if (!file_exists($sqliteDb)) {
     @touch($sqliteDb);
@@ -37,5 +44,9 @@ if (!file_exists($sqliteDb)) {
     }
 }
 
-// Forward request to Laravel public entrypoint
-require __DIR__ . '/../public/index.php';
+// Forward request to Laravel entrypoint
+if (file_exists(__DIR__ . '/../public/index.php')) {
+    require __DIR__ . '/../public/index.php';
+} else {
+    echo "<h1>Entrypoint Laravel tidak ditemukan di /public/index.php</h1>";
+}
