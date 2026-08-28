@@ -1,33 +1,29 @@
 <?php
 
-// Tampilkan error secara eksplisit jika terjadi kegagalan bootstrap di serverless
-ini_set('display_errors', '1');
-error_reporting(E_ALL);
-
-// Pastikan direktori /tmp untuk Vercel Serverless terbuat
-$tmpDirs = [
-    '/tmp/views',
-    '/tmp/sessions',
-    '/tmp/cache',
-    '/tmp/logs',
-    '/tmp/storage/framework/views',
-    '/tmp/storage/framework/sessions',
-    '/tmp/storage/framework/cache'
-];
-
-foreach ($tmpDirs as $dir) {
+// Bootstrap directories untuk Vercel /tmp (satu-satunya direktori writable)
+$tmpBase = '/tmp';
+foreach ([
+    $tmpBase . '/storage/framework/views',
+    $tmpBase . '/storage/framework/sessions',
+    $tmpBase . '/storage/framework/cache/data',
+    $tmpBase . '/storage/app/public',
+    $tmpBase . '/storage/logs',
+    $tmpBase . '/cache',
+] as $dir) {
     if (!is_dir($dir)) {
         @mkdir($dir, 0777, true);
     }
 }
 
-// Inisialisasi SQLite di /tmp
-$sqliteDb = '/tmp/database.sqlite';
+// Override APP_BASE_PATH ke root project
+$_ENV['APP_BASE_PATH'] = dirname(__DIR__);
+
+// Auto-create SQLite database
+$sqliteDb = $tmpBase . '/database.sqlite';
 if (!file_exists($sqliteDb)) {
     @touch($sqliteDb);
     try {
-        $pdo = new PDO("sqlite:$sqliteDb");
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = new PDO("sqlite:{$sqliteDb}");
         $pdo->exec("CREATE TABLE IF NOT EXISTS search_histories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT NOT NULL,
@@ -36,17 +32,12 @@ if (!file_exists($sqliteDb)) {
             result_json TEXT,
             client_ip TEXT,
             status TEXT DEFAULT 'success',
-            created_at DATETIME,
-            updated_at DATETIME
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );");
     } catch (\Throwable $e) {
-        // Abaikan jika sudah ada
+        // Ignore
     }
 }
 
-// Forward request to Laravel entrypoint
-if (file_exists(__DIR__ . '/../public/index.php')) {
-    require __DIR__ . '/../public/index.php';
-} else {
-    echo "<h1>Entrypoint Laravel tidak ditemukan di /public/index.php</h1>";
-}
+require __DIR__ . '/../public/index.php';
