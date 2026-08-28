@@ -1,7 +1,6 @@
 {
     "version": 2,
     "framework": null,
-    "buildCommand": "composer install --no-dev --prefer-dist --optimize-autoloader",
     "functions": {
         "api/index.php": {
             "runtime": "vercel-php@0.7.1"
@@ -15,7 +14,7 @@
     ],
     "env": {
         "APP_ENV": "production",
-        "APP_DEBUG": "true",
+        "APP_DEBUG": "false",
         "APP_KEY": "base64:E1y09R/h12u9BqjWk8pQ4Z7x8VnL1o3T6k2m5Y8p9Xs=",
         "APP_CONFIG_CACHE": "/tmp/config.php",
         "APP_EVENTS_CACHE": "/tmp/events.php",

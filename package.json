@@ -1,8 +1,0 @@
-{
-  "name": "ip-phone-tracker",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "vercel-build": "composer install --no-dev --prefer-dist --optimize-autoloader"
-  }
-}
