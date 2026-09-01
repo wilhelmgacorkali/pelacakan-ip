@@ -79,7 +79,7 @@ class DeviceController extends Controller
 
         $location = $device->locations()->create([
             ...$data,
-            'ip_address' => $request->ip(),
+            'ip_address' => $this->resolveClientIp($request),
             'user_agent' => substr((string) $request->userAgent(), 0, 1000),
             'recorded_at' => now(),
         ]);
@@ -135,6 +135,24 @@ class DeviceController extends Controller
             'device' => $this->devicePayload($deviceModel),
             'locations' => $locations,
         ]);
+    }
+
+    private function resolveClientIp(Request $request): string
+    {
+        $forwardedFor = $request->header('X-Forwarded-For');
+        if (is_string($forwardedFor) && trim($forwardedFor) !== '') {
+            $ip = trim(explode(',', $forwardedFor)[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        $realIp = $request->header('X-Real-IP');
+        if (is_string($realIp) && trim($realIp) !== '' && filter_var(trim($realIp), FILTER_VALIDATE_IP)) {
+            return trim($realIp);
+        }
+
+        return (string) $request->ip();
     }
 
     private function devicePayload(Device $device): array
