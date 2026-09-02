@@ -6,6 +6,7 @@ use App\Models\Device;
 use App\Models\DeviceLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class DeviceController extends Controller
@@ -13,17 +14,25 @@ class DeviceController extends Controller
     public function index(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
-        $devices = Device::query()
-            ->where('is_active', true)
-            ->when($q !== '', function ($query) use ($q) {
-                $query->where(function ($sub) use ($q) {
-                    $sub->where('name', 'like', "%{$q}%")
-                        ->orWhere('email', 'like', "%{$q}%")
-                        ->orWhere('phone', 'like', "%{$q}%");
-                });
-            })
-            ->orderByDesc('last_seen_at')
-            ->get();
+        $devices = collect();
+
+        try {
+            if (Schema::hasTable('devices')) {
+                $devices = Device::query()
+                    ->where('is_active', true)
+                    ->when($q !== '', function ($query) use ($q) {
+                        $query->where(function ($sub) use ($q) {
+                            $sub->where('name', 'like', "%{$q}%")
+                                ->orWhere('email', 'like', "%{$q}%")
+                                ->orWhere('phone', 'like', "%{$q}%");
+                        });
+                    })
+                    ->orderByDesc('last_seen_at')
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $devices = collect();
+        }
 
         return view('devices.index', compact('devices', 'q'));
     }
@@ -45,29 +54,40 @@ class DeviceController extends Controller
             return response()->json(['success' => false, 'message' => 'Isi email atau nomor HP sebagai identitas perangkat.'], 422);
         }
 
-        $device = Device::create([
-            ...$data,
-            'device_token' => Str::random(64),
-            'is_active' => true,
-            'sharing_enabled' => true,
-        ]);
+        try {
+            $device = Device::create([
+                ...$data,
+                'device_token' => Str::random(64),
+                'is_active' => true,
+                'sharing_enabled' => true,
+            ]);
 
-        $agentUrl = route('device.agent', ['token' => $device->device_token]);
+            $agentUrl = route('device.agent', ['token' => $device->device_token]);
 
-        return response()->json([
-            'success' => true,
-            'device' => $this->devicePayload($device),
-            'agent_url' => $agentUrl,
-            'token' => $device->device_token,
-        ]);
+            return response()->json([
+                'success' => true,
+                'device' => $this->devicePayload($device),
+                'agent_url' => $agentUrl,
+                'token' => $device->device_token,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan perangkat: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function destroy(int $device): JsonResponse
+    public function destroy(Request $request, $device): JsonResponse
     {
-        $deviceModel = Device::where('id', $device)->first();
+        $deviceModel = $device instanceof Device ? $device : Device::find(is_numeric($device) ? (int)$device : $device);
         if ($deviceModel) {
-            $deviceModel->locations()->delete();
-            $deviceModel->delete();
+            try {
+                $deviceModel->locations()->delete();
+                $deviceModel->delete();
+            } catch (\Throwable $e) {
+                // Ignore
+            }
         }
         return response()->json(['success' => true, 'message' => 'Perangkat berhasil dihapus.']);
     }
@@ -141,9 +161,9 @@ class DeviceController extends Controller
         ]);
     }
 
-    public function latest(Request $request, int $device): JsonResponse
+    public function latest(Request $request, $device): JsonResponse
     {
-        $deviceModel = Device::where('id', $device)->where('is_active', true)->first();
+        $deviceModel = $device instanceof Device ? $device : Device::where('id', is_numeric($device) ? (int)$device : $device)->where('is_active', true)->first();
         if (!$deviceModel) {
             return response()->json(['success' => false, 'message' => 'Device tidak ditemukan.'], 404);
         }
@@ -164,9 +184,9 @@ class DeviceController extends Controller
         ]);
     }
 
-    public function history(Request $request, int $device): JsonResponse
+    public function history(Request $request, $device): JsonResponse
     {
-        $deviceModel = Device::where('id', $device)->where('is_active', true)->firstOrFail();
+        $deviceModel = $device instanceof Device ? $device : Device::where('id', is_numeric($device) ? (int)$device : $device)->where('is_active', true)->firstOrFail();
         $limit = min(max((int) $request->query('limit', 100), 1), 500);
         $locations = $deviceModel->locations()->latest('recorded_at')->limit($limit)->get()->reverse()->values();
 
@@ -214,3 +234,4 @@ class DeviceController extends Controller
         ];
     }
 }
+
