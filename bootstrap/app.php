@@ -9,6 +9,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Pengecualian CSRF untuk endpoint yang dipanggil oleh perangkat eksternal
         $middleware->validateCsrfTokens(except: [
             'api/*',
         ]);
@@ -17,8 +18,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
         //
     })->create();
 
-// Ensure storage path points to writable /tmp/storage on Vercel / serverless
-if (isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']) || getenv('VERCEL') || (DIRECTORY_SEPARATOR === '/' && is_dir('/tmp'))) {
+// Pastikan storage path ke /tmp/storage pada Vercel / Linux serverless
+// AppServiceProvider juga melakukan ini, tapi diperlukan lebih awal di sini
+// agar config/view.php bisa dibaca sebelum ServiceProvider boot
+if (DIRECTORY_SEPARATOR === '/' && is_dir('/tmp')) {
     $storagePath = env('APP_STORAGE', '/tmp/storage');
     $app->useStoragePath($storagePath);
 }

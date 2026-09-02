@@ -206,6 +206,36 @@
             </div>
         </div>
 
+        <!-- Mode Domain: Online Vercel vs Localhost -->
+        <div class="mb-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-300">
+                <span>Pilih Tipe Link:</span>
+                <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+                    <i class="fa-solid fa-circle-info mr-1"></i>HP Target butuh Link Online
+                </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-800/80 border border-indigo-500/40 cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/20">
+                    <input type="radio" name="domain_mode" value="online" checked onchange="updateModalUrls()" class="text-indigo-600 focus:ring-0">
+                    <div class="min-w-0">
+                        <div class="font-bold text-white text-[11px] truncate flex items-center gap-1">
+                            <i class="fa-solid fa-globe text-emerald-400"></i> Online (Vercel)
+                        </div>
+                        <div class="text-[10px] text-slate-400 truncate">Untuk dikirim ke HP target</div>
+                    </div>
+                </label>
+                <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-800/80 border border-slate-700 cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/20">
+                    <input type="radio" name="domain_mode" value="local" onchange="updateModalUrls()" class="text-indigo-600 focus:ring-0">
+                    <div class="min-w-0">
+                        <div class="font-bold text-white text-[11px] truncate flex items-center gap-1">
+                            <i class="fa-solid fa-laptop text-indigo-400"></i> Lokal (127.0.0.1)
+                        </div>
+                        <div class="text-[10px] text-slate-400 truncate">Hanya di laptop ini</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
         <!-- Hero Action: Tombol WhatsApp 1-Klik -->
         <div class="mb-4">
             <a id="btnWhatsAppDirect" href="#" target="_blank" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all">
@@ -229,14 +259,14 @@
         <!-- Tampilan QR Code (Bisa langsung discan kamera HP target) -->
         <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-center mb-4">
             <div class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-qrcode text-indigo-400"></i> Atau Scan QR Code Ini di HP Target
+                <i class="fa-solid fa-qrcode text-indigo-400"></i> Scan QR Code Ini di HP Target
             </div>
             <div class="flex justify-center my-2">
                 <div class="p-2.5 bg-white rounded-xl shadow-lg">
                     <img id="qrCodeImg" src="" alt="QR Code Link" class="w-40 h-40 object-contain">
                 </div>
             </div>
-            <p class="text-[11px] text-slate-400">Arahkan kamera HP penerima ke QR Code ini untuk membuka halaman pelacakan secara instan.</p>
+            <p class="text-[11px] text-slate-400">Arahkan kamera iPhone / Android ke QR Code ini untuk membuka halaman pelacakan secara langsung.</p>
         </div>
 
         <!-- Footer Actions -->
@@ -259,11 +289,6 @@ let marker = null;
 let selectedId = null;
 let timer = null;
 let currentDeviceData = {};
-
-// Modal Share State
-let currentShareToken = '';
-let currentShareName = '';
-let currentSharePhone = '';
 
 function initMap() {
     if (deviceMap) return;
@@ -346,10 +371,37 @@ async function refreshDevice() {
     }
 }
 
+// Modal Share State
+let currentShareToken = '';
+let currentShareName = '';
+let currentSharePhone = '';
+let currentShareRequester = '';
+let currentSharePurpose = '';
+
+const PUBLIC_PRODUCTION_URL = 'https://pelacakan-nomor.vercel.app';
+
+function getDomainMode() {
+    const checked = document.querySelector('input[name="domain_mode"]:checked');
+    return checked ? checked.value : 'online';
+}
+
 // Generate Best Direct Access URL
-function buildBestAgentUrl(token) {
-    // Gunakan origin browser saat ini secara dinamis (mendukung Ngrok, Domain, IP, Localhost)
-    return `${window.location.origin}/device-agent/${token}`;
+function buildBestAgentUrl(token, forceMode = null) {
+    const mode = forceMode || getDomainMode();
+    const isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+
+    // Jika mode lokal dipilih secara eksplisit, gunakan origin browser saat ini (127.0.0.1)
+    if (mode === 'local') {
+        return `${window.location.origin}/device-agent/${token}`;
+    }
+
+    // Jika sedang dibuka di Vercel atau domain publik apapun, gunakan origin asli
+    if (!isLocalhost && mode !== 'online') {
+        return `${window.location.origin}/device-agent/${token}`;
+    }
+
+    // Default ke domain online Vercel (wajib jika dikirim ke HP / iPhone / WhatsApp luar)
+    return `${PUBLIC_PRODUCTION_URL}/device-agent/${token}`;
 }
 
 // Format Phone Number to WhatsApp Format (0812... -> 62812...)
@@ -364,29 +416,23 @@ function formatWhatsAppNumber(phone) {
     return clean;
 }
 
-// Open Share Modal
-function openShareModal(name, phone, token, requesterName = '', purpose = '') {
-    currentShareName = name;
-    currentSharePhone = phone;
-    currentShareToken = token;
-
-    const url = buildBestAgentUrl(token);
-    document.getElementById('modalDeviceTitle').innerText = `Bagikan Link: ${name}`;
-    document.getElementById('modalDeviceSubtitle').innerText = phone ? `Target: ${phone}` : 'Kirim link ini ke perangkat target';
+// Update all URLs in modal when domain mode changes
+function updateModalUrls() {
+    if (!currentShareToken) return;
+    const url = buildBestAgentUrl(currentShareToken);
     document.getElementById('modalShareUrlInput').value = url;
-    document.getElementById('copyFeedback').classList.add('hidden');
 
     // WhatsApp Message
-    const reqName = requesterName || 'Saya';
-    const waText = `Halo! ${reqName} meminta izin untuk memantau lokasi perangkat "${name}"${purpose ? ' untuk ' + purpose : ''}.\n\nSilakan klik link aman berikut lalu tekan "Aktifkan & Bagikan Lokasi":\n${url}\n\n(Lokasi hanya dikirim jika Anda menekan tombol izin di halaman tersebut).`;
+    const reqName = currentShareRequester || 'Saya';
+    const waText = `Halo! ${reqName} meminta izin untuk memantau lokasi perangkat "${currentShareName}"${currentSharePurpose ? ' untuk ' + currentSharePurpose : ''}.\n\nSilakan klik link aman berikut lalu tekan "Aktifkan & Bagikan Lokasi":\n${url}\n\n(Lokasi hanya dikirim jika Anda menekan tombol izin di halaman tersebut).`;
     
-    const waCleanNumber = formatWhatsAppNumber(phone);
+    const waCleanNumber = formatWhatsAppNumber(currentSharePhone);
     const waBtn = document.getElementById('btnWhatsAppDirect');
     const waLabel = document.getElementById('labelWhatsAppBtn');
 
     if (waCleanNumber) {
         waBtn.href = `https://api.whatsapp.com/send?phone=${waCleanNumber}&text=${encodeURIComponent(waText)}`;
-        waLabel.innerText = `Kirim ke WhatsApp (${phone})`;
+        waLabel.innerText = `Kirim ke WhatsApp (${currentSharePhone})`;
     } else {
         waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
         waLabel.innerText = 'Bagikan Pesan ke WhatsApp';
@@ -395,7 +441,25 @@ function openShareModal(name, phone, token, requesterName = '', purpose = '') {
     // QR Code Generator (Instant)
     const qrImg = document.getElementById('qrCodeImg');
     qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}&margin=10`;
+}
 
+// Open Share Modal
+function openShareModal(name, phone, token, requesterName = '', purpose = '') {
+    currentShareName = name;
+    currentSharePhone = phone;
+    currentShareToken = token;
+    currentShareRequester = requesterName;
+    currentSharePurpose = purpose;
+
+    document.getElementById('modalDeviceTitle').innerText = `Bagikan Link: ${name}`;
+    document.getElementById('modalDeviceSubtitle').innerText = phone ? `Target: ${phone}` : 'Kirim link ini ke perangkat target';
+    document.getElementById('copyFeedback').classList.add('hidden');
+
+    // Auto-set radio to 'online' by default so target phone works
+    const onlineRadio = document.querySelector('input[name="domain_mode"][value="online"]');
+    if (onlineRadio) onlineRadio.checked = true;
+
+    updateModalUrls();
     document.getElementById('shareModal').classList.remove('hidden');
 }
 
@@ -413,12 +477,13 @@ function shareCurrentSelected() {
         }
     }
     if (currentShareToken) {
-        openShareModal(currentShareName, currentSharePhone, currentShareToken);
+        openShareModal(currentShareName, currentSharePhone, currentShareToken, currentDeviceData.requester_name || '', currentDeviceData.purpose || '');
     }
 }
 
 function quickShareWhatsApp(phone, name, token) {
-    const url = buildBestAgentUrl(token);
+    // Selalu gunakan online Vercel URL untuk quick WhatsApp share
+    const url = buildBestAgentUrl(token, 'online');
     const waClean = formatWhatsAppNumber(phone);
     const waText = `Halo! Saya meminta izin untuk berbagi lokasi perangkat "${name}".\n\nSilakan buka link berikut dan tekan "Aktifkan Lokasi":\n${url}`;
     window.open(`https://api.whatsapp.com/send?phone=${waClean}&text=${encodeURIComponent(waText)}`, '_blank');

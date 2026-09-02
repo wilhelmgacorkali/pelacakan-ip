@@ -109,7 +109,9 @@ class DeviceController extends Controller
             if (!Schema::hasTable('device_locations')) {
                 Schema::create('device_locations', function ($table) {
                     $table->id();
-                    $table->foreignId('device_id')->constrained('devices')->cascadeOnDelete();
+                    // Gunakan unsignedBigInteger biasa (tanpa foreign key constraint)
+                    // agar kompatibel dengan SQLite di Vercel (DB_FOREIGN_KEYS=false)
+                    $table->unsignedBigInteger('device_id')->index();
                     $table->decimal('latitude', 10, 7);
                     $table->decimal('longitude', 10, 7);
                     $table->decimal('accuracy', 10, 2)->nullable();
@@ -118,7 +120,7 @@ class DeviceController extends Controller
                     $table->decimal('heading', 10, 2)->nullable();
                     $table->string('ip_address', 45)->nullable()->index();
                     $table->text('user_agent')->nullable();
-                    $table->timestamp('recorded_at')->index();
+                    $table->timestamp('recorded_at')->nullable()->index();
                 });
             }
         } catch (\Throwable $e) {
