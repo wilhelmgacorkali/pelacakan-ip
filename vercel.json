@@ -30,6 +30,7 @@
         "CACHE_DRIVER": "array",
         "LOG_CHANNEL": "errorlog",
         "SESSION_DRIVER": "cookie",
+        "SESSION_LIFETIME": "120",
         "FILESYSTEM_DISK": "local",
         "DB_CONNECTION": "sqlite",
         "DB_DATABASE": "/tmp/database.sqlite"

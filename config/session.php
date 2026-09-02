@@ -4,8 +4,9 @@ use Illuminate\Support\Str;
 
 return [
     'driver' => env('SESSION_DRIVER', 'cookie'),
-    'lifetime' => env('SESSION_LIFETIME', 120),
-    'expire_on_close' => false,
+    'lifetime' => (int) (env('SESSION_LIFETIME', 120) ?: 120),
+    'expire_on_close' => (bool) env('SESSION_EXPIRE_ON_CLOSE', false),
+    'encrypt' => (bool) env('SESSION_ENCRYPT', false),
     'files' => (DIRECTORY_SEPARATOR === '/' && is_dir('/tmp')) ? '/tmp/storage/framework/sessions' : storage_path('framework/sessions'),
     'table' => 'sessions',
     'store' => env('SESSION_STORE'),
