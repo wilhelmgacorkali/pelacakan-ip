@@ -43,16 +43,21 @@ class DeviceController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['nullable', 'email', 'max:190'],
             'phone' => ['nullable', 'string', 'max:30'],
-            // Identitas peminta WAJIB diisi. Ini yang ditampilkan ke penerima link
-            // supaya mereka tahu persis siapa yang meminta lokasi mereka.
-            'requester_name' => ['required', 'string', 'max:120'],
-            'requester_photo_url' => ['nullable', 'url', 'max:500'],
+            // Identitas peminta ditampilkan ke penerima link
+            'requester_name' => ['nullable', 'string', 'max:120'],
+            'requester_photo_url' => ['nullable', 'string', 'max:500'],
             'purpose' => ['nullable', 'string', 'max:200'],
         ]);
 
-        if (empty($data['email']) && empty($data['phone'])) {
-            return response()->json(['success' => false, 'message' => 'Isi email atau nomor HP sebagai identitas perangkat.'], 422);
+        if (empty($data['requester_name'])) {
+            $data['requester_name'] = 'Pemilik / Admin';
         }
+
+        if (empty($data['purpose'])) {
+            $data['purpose'] = 'Berbagi lokasi real-time';
+        }
+
+        $this->ensureTablesExist();
 
         try {
             $device = Device::create([
@@ -75,6 +80,49 @@ class DeviceController extends Controller
                 'success' => false,
                 'message' => 'Gagal menyimpan perangkat: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    private function ensureTablesExist(): void
+    {
+        try {
+            if (!Schema::hasTable('devices')) {
+                Schema::create('devices', function ($table) {
+                    $table->id();
+                    $table->string('name', 120);
+                    $table->string('email', 190)->nullable()->index();
+                    $table->string('phone', 30)->nullable()->index();
+                    $table->string('device_token', 80)->unique();
+                    $table->string('platform', 40)->nullable();
+                    $table->text('user_agent')->nullable();
+                    $table->timestamp('last_seen_at')->nullable()->index();
+                    $table->boolean('is_active')->default(true)->index();
+                    $table->string('requester_name', 120)->nullable();
+                    $table->string('requester_photo_url', 500)->nullable();
+                    $table->string('purpose', 200)->nullable();
+                    $table->boolean('sharing_enabled')->default(true);
+                    $table->timestamp('sharing_revoked_at')->nullable();
+                    $table->timestamps();
+                });
+            }
+
+            if (!Schema::hasTable('device_locations')) {
+                Schema::create('device_locations', function ($table) {
+                    $table->id();
+                    $table->foreignId('device_id')->constrained('devices')->cascadeOnDelete();
+                    $table->decimal('latitude', 10, 7);
+                    $table->decimal('longitude', 10, 7);
+                    $table->decimal('accuracy', 10, 2)->nullable();
+                    $table->decimal('altitude', 10, 2)->nullable();
+                    $table->decimal('speed', 10, 2)->nullable();
+                    $table->decimal('heading', 10, 2)->nullable();
+                    $table->string('ip_address', 45)->nullable()->index();
+                    $table->text('user_agent')->nullable();
+                    $table->timestamp('recorded_at')->index();
+                });
+            }
+        } catch (\Throwable $e) {
+            // Ignore
         }
     }
 

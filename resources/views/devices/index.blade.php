@@ -527,20 +527,30 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
     const body = Object.fromEntries(form.entries());
 
     try {
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta ? csrfMeta.content : '';
+
         const res = await fetch('{{ route('devices.enroll') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                'X-CSRF-TOKEN': csrfToken
             },
             body: JSON.stringify(body)
         });
-        const json = await res.json();
+
+        const json = await res.json().catch(() => ({ success: false, message: 'Respon server tidak valid.' }));
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Buat Link &amp; Kirim ke Target';
 
-        if (!json.success) throw new Error(json.message || 'Gagal mendaftarkan device.');
+        if (!json.success) {
+            let errorMsg = json.message || 'Gagal mendaftarkan device.';
+            if (json.errors) {
+                errorMsg = Object.values(json.errors).flat().join(', ');
+            }
+            throw new Error(errorMsg);
+        }
 
         const d = json.device;
         const noDevMsg = document.getElementById('noDeviceMsg');
@@ -578,6 +588,14 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
         const countEl = document.getElementById('deviceCount');
         if (countEl) countEl.innerText = document.querySelectorAll('.device-row').length;
 
+        // Reset input nama target di form
+        const nameInput = e.target.querySelector('input[name="name"]');
+        if (nameInput) nameInput.value = '';
+        const phoneInput = e.target.querySelector('input[name="phone"]');
+        if (phoneInput) phoneInput.value = '';
+        const emailInput = e.target.querySelector('input[name="email"]');
+        if (emailInput) emailInput.value = '';
+
         // Pilih device baru & buka modal share langsung!
         selectDevice(d.id);
         openShareModal(d.name, d.phone, d.device_token, d.requester_name, d.purpose);
@@ -586,9 +604,9 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Buat Link &amp; Kirim ke Target';
         Swal.fire({
-            title: 'Gagal',
+            title: 'Perhatian',
             text: err.message,
-            icon: 'error',
+            icon: 'warning',
             background: '#0f172a',
             color: '#f8fafc'
         });
