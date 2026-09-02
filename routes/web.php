@@ -20,5 +20,7 @@ Route::get('/devices', [App\Http\Controllers\DeviceController::class, 'index'])-
 Route::post('/api/devices/enroll', [App\Http\Controllers\DeviceController::class, 'enroll'])->name('devices.enroll');
 Route::get('/device-agent/{token}', [App\Http\Controllers\DeviceController::class, 'agent'])->name('device.agent');
 Route::post('/api/device-agent/{token}/location', [App\Http\Controllers\DeviceController::class, 'location'])->name('device.location');
+Route::post('/api/device-agent/{token}/revoke', [App\Http\Controllers\DeviceController::class, 'revoke'])->name('device.revoke');
 Route::get('/api/devices/{device}/latest', [App\Http\Controllers\DeviceController::class, 'latest'])->name('devices.latest');
 Route::get('/api/devices/{device}/history', [App\Http\Controllers\DeviceController::class, 'history'])->name('devices.history');
+Route::delete('/api/devices/{device}', [App\Http\Controllers\DeviceController::class, 'destroy'])->name('devices.destroy');

@@ -34,6 +34,11 @@ class DeviceController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['nullable', 'email', 'max:190'],
             'phone' => ['nullable', 'string', 'max:30'],
+            // Identitas peminta WAJIB diisi. Ini yang ditampilkan ke penerima link
+            // supaya mereka tahu persis siapa yang meminta lokasi mereka.
+            'requester_name' => ['required', 'string', 'max:120'],
+            'requester_photo_url' => ['nullable', 'url', 'max:500'],
+            'purpose' => ['nullable', 'string', 'max:200'],
         ]);
 
         if (empty($data['email']) && empty($data['phone'])) {
@@ -44,15 +49,27 @@ class DeviceController extends Controller
             ...$data,
             'device_token' => Str::random(64),
             'is_active' => true,
+            'sharing_enabled' => true,
         ]);
 
         $agentUrl = route('device.agent', ['token' => $device->device_token]);
 
         return response()->json([
             'success' => true,
-            'device' => $device,
+            'device' => $this->devicePayload($device),
             'agent_url' => $agentUrl,
+            'token' => $device->device_token,
         ]);
+    }
+
+    public function destroy(int $device): JsonResponse
+    {
+        $deviceModel = Device::where('id', $device)->first();
+        if ($deviceModel) {
+            $deviceModel->locations()->delete();
+            $deviceModel->delete();
+        }
+        return response()->json(['success' => true, 'message' => 'Perangkat berhasil dihapus.']);
     }
 
     public function agent(string $token)
@@ -61,11 +78,34 @@ class DeviceController extends Controller
         return view('devices.agent', compact('device'));
     }
 
+    /**
+     * Penerima link menekan tombol ini kapan saja untuk MENGHENTIKAN
+     * pembagian lokasi. Ini adalah kontrol milik penerima, bukan pengirim.
+     */
+    public function revoke(Request $request, string $token): JsonResponse
+    {
+        $device = Device::where('device_token', $token)->first();
+        if (!$device) {
+            return response()->json(['success' => false, 'message' => 'Device token tidak ditemukan.'], 404);
+        }
+
+        $device->forceFill([
+            'sharing_enabled' => false,
+            'sharing_revoked_at' => now(),
+        ])->save();
+
+        return response()->json(['success' => true, 'message' => 'Berbagi lokasi telah dihentikan.']);
+    }
+
     public function location(Request $request, string $token): JsonResponse
     {
         $device = Device::where('device_token', $token)->where('is_active', true)->first();
         if (!$device) {
             return response()->json(['success' => false, 'message' => 'Device token tidak aktif.'], 404);
+        }
+
+        if (!$device->sharing_enabled) {
+            return response()->json(['success' => false, 'message' => 'Berbagi lokasi untuk perangkat ini telah dihentikan oleh penerima.'], 403);
         }
 
         $data = $request->validate([
@@ -162,7 +202,13 @@ class DeviceController extends Controller
             'name' => $device->name,
             'email' => $device->email,
             'phone' => $device->phone,
+            'device_token' => $device->device_token,
+            'agent_url' => route('device.agent', ['token' => $device->device_token]),
             'platform' => $device->platform,
+            'requester_name' => $device->requester_name,
+            'requester_photo_url' => $device->requester_photo_url,
+            'purpose' => $device->purpose,
+            'sharing_enabled' => (bool) $device->sharing_enabled,
             'last_seen_at' => $device->last_seen_at?->toIso8601String(),
             'online' => $device->last_seen_at?->gt(now()->subMinutes(2)) ?? false,
         ];

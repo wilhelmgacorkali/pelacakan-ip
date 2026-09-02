@@ -451,6 +451,7 @@ class ComposerStaticInita41e587a4384fe13de8191e884df4e4b
     );
 
     public static $classMap = array (
+        'App\\Console\\Commands\\TunnelCommand' => __DIR__ . '/../..' . '/app/Console/Commands/TunnelCommand.php',
         'App\\Console\\Kernel' => __DIR__ . '/../..' . '/app/Console/Kernel.php',
         'App\\Exceptions\\Handler' => __DIR__ . '/../..' . '/app/Exceptions/Handler.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
@@ -458,6 +459,7 @@ class ComposerStaticInita41e587a4384fe13de8191e884df4e4b
         'App\\Http\\Controllers\\HistoryController' => __DIR__ . '/../..' . '/app/Http/Controllers/HistoryController.php',
         'App\\Http\\Controllers\\TrackerController' => __DIR__ . '/../..' . '/app/Http/Controllers/TrackerController.php',
         'App\\Http\\Kernel' => __DIR__ . '/../..' . '/app/Http/Kernel.php',
+        'App\\Http\\Middleware\\TrustProxies' => __DIR__ . '/../..' . '/app/Http/Middleware/TrustProxies.php',
         'App\\Models\\Device' => __DIR__ . '/../..' . '/app/Models/Device.php',
         'App\\Models\\DeviceLocation' => __DIR__ . '/../..' . '/app/Models/DeviceLocation.php',
         'App\\Models\\SearchHistory' => __DIR__ . '/../..' . '/app/Models/SearchHistory.php',

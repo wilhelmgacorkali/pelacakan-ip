@@ -6,6 +6,7 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'App\\Console\\Commands\\TunnelCommand' => $baseDir . '/app/Console/Commands/TunnelCommand.php',
     'App\\Console\\Kernel' => $baseDir . '/app/Console/Kernel.php',
     'App\\Exceptions\\Handler' => $baseDir . '/app/Exceptions/Handler.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
@@ -13,6 +14,7 @@ return array(
     'App\\Http\\Controllers\\HistoryController' => $baseDir . '/app/Http/Controllers/HistoryController.php',
     'App\\Http\\Controllers\\TrackerController' => $baseDir . '/app/Http/Controllers/TrackerController.php',
     'App\\Http\\Kernel' => $baseDir . '/app/Http/Kernel.php',
+    'App\\Http\\Middleware\\TrustProxies' => $baseDir . '/app/Http/Middleware/TrustProxies.php',
     'App\\Models\\Device' => $baseDir . '/app/Models/Device.php',
     'App\\Models\\DeviceLocation' => $baseDir . '/app/Models/DeviceLocation.php',
     'App\\Models\\SearchHistory' => $baseDir . '/app/Models/SearchHistory.php',
