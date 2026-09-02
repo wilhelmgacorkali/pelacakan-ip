@@ -595,7 +595,7 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const csrfToken = csrfMeta ? csrfMeta.content : '';
 
-        const res = await fetch('{{ route('devices.enroll') }}', {
+        const res = await fetch('/api/devices/enroll', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

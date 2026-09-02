@@ -97,7 +97,7 @@ async function sendLocation(position) {
     lastSentAt = now;
 
     try {
-        const res = await fetch('{{ route('device.location', ['token' => $device->device_token]) }}', {
+        const res = await fetch('/api/device-agent/{{ $device->device_token }}/location', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ function stopWatch() {
 async function stopAndRevoke() {
     stopWatch();
     try {
-        await fetch('{{ route('device.revoke', ['token' => $device->device_token]) }}', {
+        await fetch('/api/device-agent/{{ $device->device_token }}/revoke', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

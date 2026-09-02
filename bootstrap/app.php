@@ -9,7 +9,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Pengecualian CSRF untuk endpoint yang dipanggil oleh perangkat eksternal
+        $middleware->trustProxies(at: '*');
+        // Pengecualian CSRF untuk endpoint API dan device tracking
         $middleware->validateCsrfTokens(except: [
             'api/*',
         ]);

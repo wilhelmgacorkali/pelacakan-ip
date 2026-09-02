@@ -38,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        if (DIRECTORY_SEPARATOR === '/' && is_dir('/tmp')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
     }
 }
