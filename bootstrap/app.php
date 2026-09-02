@@ -13,6 +13,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         // Pengecualian CSRF untuk endpoint API dan device tracking
         $middleware->validateCsrfTokens(except: [
             'api/*',
+            'devices/*',
+            'device-agent/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
